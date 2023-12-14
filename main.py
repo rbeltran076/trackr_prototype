@@ -12,27 +12,30 @@ cursor.execute('''
         title TEXT,
         description TEXT,
         due_date DATE,
-        priority_level TEXT
+        priority_level TEXT,
+        completed INTEGER DEFAULT 0
     )
 ''')
 
 # Alter the table to include the "priority_level" column
 try:
     cursor.execute('ALTER TABLE assignments ADD COLUMN priority_level TEXT')
+    cursor.execute('ALTER TABLE assignments ADD COLUMN completed INTEGER DEFAULT 0')
     conn.commit()
 except sqlite3.OperationalError as e:
     print("Column already exists")
 
 # Main function to insert assignments into the database
-def insert_assignment(title, description, due_date, priority_level):
+def insert_assignment(title, description, due_date, priority_level, completed):
     try:
-        query = "INSERT INTO assignments (title, description, due_date, priority_level) VALUES (?, ?, ?, ?)"
-        params = (title, description, due_date, priority_level)
+        query = "INSERT INTO assignments (title, description, due_date, priority_level, completed) VALUES (?, ?, ?, ?, ?)"
+        params = (title, description, due_date, priority_level, completed)
         cursor.execute(query, params)
         conn.commit()
     except Exception as e:
         print(str(e))
 
+# Function to fetch assignments from the database
 # Function to fetch assignments from the database
 def fetch_assignments():
     cursor.execute("SELECT * FROM assignments ORDER BY due_date ASC")
@@ -56,9 +59,26 @@ def display_assignments(assignments):
                 col.markdown(
                     f"**Priority Level:** <span style='background-color:{assignment[4]}; color:white; padding: 4px; border-radius: 4px;'>  ---  </span>",
                     unsafe_allow_html=True)
+
+                if assignment[5] == 0: # Check if the assignment is not completed
+                    completion_button = col.button("Mark as Completed", key=f"complete_{assignment[0]}")
+                    if completion_button:
+                        mark_assignment_completed(assignment[0])
+                        st.success("Assignment marked as completed!")
+
                 col.write("-----------------------")
     else:
         st.info("No assignments available yet, add one now!")
+
+# Function to mark an assignment as completed
+def mark_assignment_completed(assignment_id):
+    try:
+        query = "UPDATE assignments SET completed = 1 WHERE id = ?"
+        params = (assignment_id,)
+        cursor.execute(query, params)
+        conn.commit()
+    except Exception as e:
+        print(str(e))
 
 st.title("Trakr ✒️")
 tab1, tab2 = st.tabs(["Add", "Assignments"])
@@ -83,7 +103,7 @@ with tab1:
     if st.button("Add"):
         if title and due_date:
             selected_color = color_mapping.get(priority_level)
-            insert_assignment(title, description, due_date, selected_color)
+            insert_assignment(title, description, due_date, selected_color, completed)
             st.success("Assignment added successfully!")
 
     def clear_assignments():
